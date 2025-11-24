@@ -1,0 +1,89 @@
+# Dependency Directories
+node_modules/
+client/node_modules/
+server/node_modules/
+*/node_modules/
+**/node_modules/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Build & Distribution
+dist/
+build/
+*.tsbuildinfo
+client/dist/
+server/dist/
+
+# Cache Files
+.cache/
+.eslintcache
+.next/
+out/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.iml
+.vscode-test
+.history/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime Data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temp Files
+tmp/
+temp/
+*.tmp
+.temp/
+
+# OS Files
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Production Builds
+dist/
+build/
+
+# Package Lock Files (optional)
+# Uncomment to ignore lock files:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Misc
+*.pem
+.turbo/
+.eslintignore
