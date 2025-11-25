@@ -40,6 +40,14 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login({ email, password });
       if (response.data.success) {
         setIsAuthenticated(true);
+        // Store userId and fetch user data
+        if (response.data.userId) {
+          Cookie.set("userId", response.data.userId, { expires: 7 });
+          const userData = await userAPI.getUserData(response.data.userId);
+          if (userData.data.success) {
+            setUser(userData.data.userData);
+          }
+        }
         return response.data;
       }
       throw new Error(response.data.message);
