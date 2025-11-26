@@ -60,6 +60,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.register({ name, email, password });
       if (response.data.success) {
+        // User is logged in after registration (token cookie is set by backend)
+        setIsAuthenticated(true);
+        if (response.data.userId) {
+          Cookie.set("userId", response.data.userId, { expires: 7 });
+        }
         return response.data;
       }
       throw new Error(response.data.message);
@@ -82,6 +87,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = (userData) => {
     setUser(userData);
+    setIsAuthenticated(true);
   };
 
   return (
@@ -94,6 +100,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         updateUser,
+        setIsAuthenticated,
       }}
     >
       {children}

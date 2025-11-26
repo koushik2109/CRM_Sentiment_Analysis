@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { authAPI } from "../services/api";
+import { authAPI, userAPI } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import { assets } from "../assets";
+import Cookie from "js-cookie";
 
 const VerifyEmail = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { updateUser } = useAuth();
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +29,14 @@ const VerifyEmail = () => {
     try {
       const response = await authAPI.verifyEmail(userId, otp);
       if (response.data.success) {
-        navigate("/login");
+        // Store userId and fetch user data for dashboard
+        Cookie.set("userId", userId, { expires: 7 });
+        const userData = await userAPI.getUserData(userId);
+        if (userData.data.success) {
+          updateUser(userData.data.userData);
+        }
+        // Go directly to dashboard (user is already logged in from registration)
+        navigate("/dashboard");
       } else {
         setError(response.data.message || "Verification failed");
       }

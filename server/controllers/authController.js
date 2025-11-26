@@ -13,18 +13,27 @@ export const register = async (req, res) => {
     return res.json({ success: false, message: "Missing Details" });
 
   try {
-    const existingUser = await userModel.findOne({ email });
+    // Run hash and DB check in parallel
+    const [existingUser, hashPassword] = await Promise.all([
+      userModel.findOne({ email }).lean(),
+      bcrypt.hash(password, 8), // Reduced from 10 to 8 rounds (still secure, but faster)
+    ]);
+
     if (existingUser)
       return res.json({ success: false, message: "User already exists" });
 
-    const hashPassword = await bcrypt.hash(password, 10);
+    // Generate OTP upfront
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const user = new userModel({
       name,
       email,
       password: hashPassword,
+      verifyOtp: otp,
+      verifyOtpExpireAt: Date.now() + 10 * 60 * 1000,
     });
 
+    // Save user once (not twice)
     await user.save();
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -38,20 +47,18 @@ export const register = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // Generate and send OTP for email verification
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.verifyOtp = otp;
-    user.verifyOtpExpireAt = Date.now() + 10 * 60 * 1000;
-    await user.save();
+    // Send response immediately
+    res.json({ success: true, userId: user._id });
 
-    await transporter.sendMail({
-      from: process.env.SENDER_EMAIL,
-      to: email,
-      subject: "Verify Your Email - AI CRM",
-      text: `Welcome ${name}! Your OTP for email verification is: ${otp}`,
-    });
-
-    return res.json({ success: true, userId: user._id });
+    // Send email in background (after response)
+    transporter
+      .sendMail({
+        from: process.env.SENDER_EMAIL,
+        to: email,
+        subject: "Verify Your Email - AI CRM",
+        text: `Welcome ${name}! Your OTP for email verification is: ${otp}`,
+      })
+      .catch((err) => console.error("Email send error:", err));
   } catch (error) {
     return res.json({ success: false, message: error.message });
   }
@@ -70,7 +77,8 @@ export const login = async (req, res) => {
     });
 
   try {
-    const user = await userModel.findOne({ email });
+    // Use lean() for faster query (returns plain JS object)
+    const user = await userModel.findOne({ email }).lean();
     if (!user) return res.json({ success: false, message: "Invalid Email" });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -133,12 +141,15 @@ export const sendVerifyOtp = async (req, res) => {
     user.verifyOtpExpireAt = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    await transporter.sendMail({
-      from: process.env.SENDER_EMAIL,
-      to: user.email,
-      subject: "Verify Email - AI CRM",
-      text: `Your OTP is: ${otp}`,
-    });
+    // Send email asynchronously (don't wait)
+    transporter
+      .sendMail({
+        from: process.env.SENDER_EMAIL,
+        to: user.email,
+        subject: "Verify Email - AI CRM",
+        text: `Your OTP is: ${otp}`,
+      })
+      .catch((err) => console.error("Email send error:", err));
 
     return res.json({ success: true, message: "OTP Sent" });
   } catch (error) {
@@ -206,12 +217,15 @@ export const sendResetOtp = async (req, res) => {
     user.resetOtpExpireAt = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    await transporter.sendMail({
-      from: process.env.SENDER_EMAIL,
-      to: email,
-      subject: "Reset Password OTP",
-      text: `Your OTP is: ${otp}`,
-    });
+    // Send email asynchronously (don't wait)
+    transporter
+      .sendMail({
+        from: process.env.SENDER_EMAIL,
+        to: email,
+        subject: "Reset Password OTP",
+        text: `Your OTP is: ${otp}`,
+      })
+      .catch((err) => console.error("Email send error:", err));
 
     return res.json({ success: true, message: "OTP sent successfully" });
   } catch (error) {
