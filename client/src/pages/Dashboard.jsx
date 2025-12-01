@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { assets } from "../assets";
+import Navbar from "../components/Navbar";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, logout, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -24,30 +24,36 @@ const Dashboard = () => {
     );
   }
 
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
+  const features = [
+    {
+      icon: "📊",
+      title: "Analytics",
+      description: "View detailed feedback analytics",
+      path: "/analytics",
+    },
+    {
+      icon: "💬",
+      title: "Feedback",
+      description: "Manage customer feedback",
+      path: "/feedback",
+    },
+    {
+      icon: "👥",
+      title: "Users",
+      description: "Manage team members",
+      path: "/users",
+    },
+    {
+      icon: "⚙️",
+      title: "Settings",
+      description: "Configure your preferences",
+      path: "/settings",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Navbar */}
-      <nav className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <img src={assets.logo} alt="Logo" className="h-10" />
-            <span className="ml-3 text-xl font-bold text-gray-800">
-              AI CRM Feedback
-            </span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition duration-200"
-          >
-            Logout
-          </button>
-        </div>
-      </nav>
+      <Navbar user={user} />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -55,11 +61,7 @@ const Dashboard = () => {
           {/* Welcome Card */}
           <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-8">
             <div className="flex items-start">
-              <img
-                src={assets.hand_wave}
-                alt="Wave"
-                className="h-12 w-12 mr-4"
-              />
+              <span className="text-5xl mr-4">👋</span>
               <div>
                 <h1 className="text-4xl font-bold text-gray-800">
                   Welcome, {user?.name}! 👋
@@ -102,38 +104,25 @@ const Dashboard = () => {
 
         {/* Features Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <FeatureCard
-            icon="📊"
-            title="Analytics"
-            description="View detailed feedback analytics"
-          />
-          <FeatureCard
-            icon="💬"
-            title="Feedback"
-            description="Manage customer feedback"
-          />
-          <FeatureCard
-            icon="👥"
-            title="Users"
-            description="Manage team members"
-          />
-          <FeatureCard
-            icon="⚙️"
-            title="Settings"
-            description="Configure your preferences"
-          />
+          {features.map((feature) => (
+            <div
+              key={feature.title}
+              onClick={() => navigate(feature.path)}
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-200 cursor-pointer hover:scale-105 transform"
+            >
+              <div className="text-4xl mb-3">{feature.icon}</div>
+              <h3 className="text-lg font-semibold text-gray-800">
+                {feature.title}
+              </h3>
+              <p className="text-gray-600 text-sm mt-2">
+                {feature.description}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
-
-const FeatureCard = ({ icon, title, description }) => (
-  <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-200 cursor-pointer">
-    <div className="text-4xl mb-3">{icon}</div>
-    <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-    <p className="text-gray-600 text-sm mt-2">{description}</p>
-  </div>
-);
 
 export default Dashboard;

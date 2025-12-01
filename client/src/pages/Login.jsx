@@ -29,7 +29,12 @@ const Login = () => {
     try {
       const response = await login(formData.email, formData.password);
       if (response.success) {
-        navigate("/dashboard");
+        // Redirect admin to admin dashboard, others to regular dashboard
+        if (response.isAdmin || response.role === "admin") {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/dashboard");
+        }
       }
     } catch (err) {
       setError(err.message || "Login failed");

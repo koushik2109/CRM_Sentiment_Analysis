@@ -48,7 +48,13 @@ export const AuthProvider = ({ children }) => {
             setUser(userData.data.userData);
           }
         }
-        return response.data;
+        // Return full response including role and isAdmin
+        return {
+          success: true,
+          role: response.data.role,
+          isAdmin: response.data.isAdmin,
+          userId: response.data.userId,
+        };
       }
       throw new Error(response.data.message);
     } catch (error) {

@@ -1,9 +1,26 @@
 import express from "express";
-import { getUserData } from "../controllers/userController.js";
+import {
+  getUserData,
+  getAllUsers,
+  updateProfile,
+  changePassword,
+  updateNotifications,
+  inviteUser,
+  updateUserRole,
+} from "../controllers/userController.js";
 import userAuth from "../middleware/userAuth.js";
 
 const userRouter = express.Router();
 
-userRouter.post("/get-user-data", userAuth, getUserData);
+// All routes require authentication
+userRouter.use(userAuth);
+
+userRouter.post("/get-user-data", getUserData);
+userRouter.get("/all", getAllUsers);
+userRouter.put("/profile", updateProfile);
+userRouter.put("/password", changePassword);
+userRouter.put("/notifications", updateNotifications);
+userRouter.post("/invite", inviteUser);
+userRouter.put("/:userId/role", updateUserRole);
 
 export default userRouter;
