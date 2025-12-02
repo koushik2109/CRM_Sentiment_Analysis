@@ -4,7 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import PrivateRoute from "./components/PrivateRoute";
 
 // Pages
@@ -22,6 +22,22 @@ import AdminDashboard from "./pages/AdminDashboard";
 
 // Styles
 import "./styles/globals.css";
+
+// Smart redirect component that checks auth status
+const CatchAllRedirect = () => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Redirect authenticated users to dashboard, others to home
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />;
+};
 
 function App() {
   return (
@@ -81,8 +97,8 @@ function App() {
             }
           />
 
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" />} />
+          {/* Catch all - smart redirect based on auth status */}
+          <Route path="*" element={<CatchAllRedirect />} />
         </Routes>
       </AuthProvider>
     </Router>

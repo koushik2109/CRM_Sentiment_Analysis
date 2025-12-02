@@ -6,6 +6,7 @@ import {
   getAllFeedbackAdmin,
   deleteUser,
   getSystemHealth,
+  controlDockerMonitoring,
 } from "../controllers/adminController.js";
 
 const adminRouter = express.Router();
@@ -25,5 +26,8 @@ adminRouter.get("/feedback", getAllFeedbackAdmin);
 
 // System health
 adminRouter.get("/health", getSystemHealth);
+
+// Docker monitoring control
+adminRouter.post("/docker/:action", controlDockerMonitoring);
 
 export default adminRouter;

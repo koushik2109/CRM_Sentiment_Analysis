@@ -1,13 +1,36 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { authAPI, userAPI } from "../services/api";
 import Cookie from "js-cookie";
 
 const AuthContext = createContext();
 
+// Heartbeat interval (every 30 seconds)
+const HEARTBEAT_INTERVAL = 30000;
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const heartbeatRef = useRef(null);
+
+  // Heartbeat to keep user marked as online
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Send initial heartbeat
+      userAPI.heartbeat().catch(() => {});
+
+      // Set up interval for periodic heartbeats
+      heartbeatRef.current = setInterval(() => {
+        userAPI.heartbeat().catch(() => {});
+      }, HEARTBEAT_INTERVAL);
+    }
+
+    return () => {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+      }
+    };
+  }, [isAuthenticated]);
 
   // Check auth on mount
   useEffect(() => {

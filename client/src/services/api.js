@@ -31,6 +31,7 @@ export const userAPI = {
     api.put("/user/notifications", { notifications }),
   inviteUser: (email, role) => api.post("/user/invite", { email, role }),
   updateUserRole: (userId, role) => api.put(`/user/${userId}/role`, { role }),
+  heartbeat: () => api.post("/user/heartbeat"),
 };
 
 export const feedbackAPI = {
@@ -52,6 +53,7 @@ export const adminAPI = {
   getFeedback: (page = 1, limit = 10) =>
     api.get(`/admin/feedback?page=${page}&limit=${limit}`),
   getHealth: () => api.get("/admin/health"),
+  controlDocker: (action) => api.post(`/admin/docker/${action}`),
 };
 
 export default api;

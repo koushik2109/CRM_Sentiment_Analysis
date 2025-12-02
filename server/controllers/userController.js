@@ -50,12 +50,10 @@ export const updateProfile = async (req, res) => {
     const { name } = req.body;
 
     if (!name || name.trim().length < 2) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Name must be at least 2 characters",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Name must be at least 2 characters",
+      });
     }
 
     const user = await userModel
@@ -93,12 +91,10 @@ export const changePassword = async (req, res) => {
     }
 
     if (newPassword.length < 6) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Password must be at least 6 characters",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
     }
 
     const user = await userModel.findById(userId);
@@ -211,6 +207,25 @@ export const updateUserRole = async (req, res) => {
     await userModel.findByIdAndUpdate(userId, { role });
 
     res.json({ success: true, message: "Role updated successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Heartbeat - Update user's online status and last active time
+ * POST /api/user/heartbeat
+ */
+export const heartbeat = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    await userModel.findByIdAndUpdate(userId, {
+      lastActive: new Date(),
+      isOnline: true,
+    });
+
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

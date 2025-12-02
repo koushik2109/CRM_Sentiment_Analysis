@@ -7,6 +7,7 @@ import {
   updateNotifications,
   inviteUser,
   updateUserRole,
+  heartbeat,
 } from "../controllers/userController.js";
 import userAuth from "../middleware/userAuth.js";
 
@@ -21,6 +22,7 @@ userRouter.put("/profile", updateProfile);
 userRouter.put("/password", changePassword);
 userRouter.put("/notifications", updateNotifications);
 userRouter.post("/invite", inviteUser);
+userRouter.post("/heartbeat", heartbeat);
 userRouter.put("/:userId/role", updateUserRole);
 
 export default userRouter;

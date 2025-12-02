@@ -19,6 +19,40 @@ const AdminDashboard = () => {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [metricsData, setMetricsData] = useState(null);
+  const [dockerLoading, setDockerLoading] = useState(false);
+  const [dockerMessage, setDockerMessage] = useState("");
+  const [copiedCommand, setCopiedCommand] = useState(null);
+
+  // Control Docker monitoring services
+  const controlDocker = async (action) => {
+    setDockerLoading(true);
+    setDockerMessage("");
+    try {
+      const res = await adminAPI.controlDocker(action);
+      if (res.data.success) {
+        setDockerMessage(`✅ ${res.data.message}`);
+        // Refresh health status after 3 seconds to give containers time to start
+        setTimeout(() => {
+          fetchData();
+          setDockerMessage("");
+        }, 3000);
+      }
+    } catch (err) {
+      setDockerMessage(
+        `❌ Failed to ${action} services: ${
+          err.response?.data?.message || err.message
+        }`
+      );
+    } finally {
+      setDockerLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCommand(id);
+    setTimeout(() => setCopiedCommand(null), 2000);
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -1062,135 +1096,331 @@ const AdminDashboard = () => {
         {/* Monitoring Tab */}
         {activeTab === "monitoring" && (
           <div className="space-y-6">
-            {/* Quick Links Cards */}
-            <div className="grid md:grid-cols-4 gap-4">
-              <a
-                href="http://localhost:4000/metrics"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-gradient-to-br from-green-600 to-green-800 rounded-lg p-6 hover:scale-105 transition transform"
-              >
-                <span className="text-4xl">📈</span>
-                <h3 className="text-xl font-bold mt-3">Prometheus</h3>
-                <p className="text-green-200 text-sm mt-1">
-                  Raw Metrics Endpoint
-                </p>
-                <p className="text-xs text-green-300 mt-2">
+            {/* Service Status Cards - Top Row */}
+            <div className="grid md:grid-cols-5 gap-4">
+              <div className="bg-gradient-to-br from-green-600 to-green-800 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">📊</span>
+                  <span className="bg-green-400 text-green-900 text-xs px-2 py-1 rounded-full font-semibold">
+                    Active
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold mt-2">Backend Metrics</h3>
+                <p className="text-green-200 text-xs mt-1">
                   localhost:4000/metrics
                 </p>
-              </a>
+              </div>
 
-              <a
-                href="http://localhost:3006/metrics"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-6 hover:scale-105 transition transform"
+              <div
+                className={`bg-gradient-to-br ${
+                  health?.prometheus
+                    ? "from-orange-500 to-orange-700"
+                    : "from-orange-900 to-orange-950"
+                } rounded-lg p-4`}
               >
-                <span className="text-4xl">⚙️</span>
-                <h3 className="text-xl font-bold mt-3">Worker Metrics</h3>
-                <p className="text-blue-200 text-sm mt-1">
-                  Feedback Pipeline Stats
-                </p>
-                <p className="text-xs text-blue-300 mt-2">
-                  localhost:3006/metrics
-                </p>
-              </a>
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">🔥</span>
+                  <span
+                    className={`${
+                      health?.prometheus
+                        ? "bg-green-400 text-green-900"
+                        : "bg-red-500 text-white"
+                    } text-xs px-2 py-1 rounded-full font-semibold`}
+                  >
+                    {health?.prometheus ? "Running" : "Stopped"}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold mt-2">Prometheus</h3>
+                <p className="text-orange-200 text-xs mt-1">localhost:9090</p>
+              </div>
 
-              <a
-                href="http://localhost:3000/analytics"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg p-6 hover:scale-105 transition transform"
+              <div
+                className={`bg-gradient-to-br ${
+                  health?.grafana
+                    ? "from-yellow-500 to-yellow-700"
+                    : "from-yellow-900 to-yellow-950"
+                } rounded-lg p-4`}
               >
-                <span className="text-4xl">📊</span>
-                <h3 className="text-xl font-bold mt-3">Analytics</h3>
-                <p className="text-purple-200 text-sm mt-1">
-                  View Detailed Charts
-                </p>
-                <p className="text-xs text-purple-300 mt-2">
-                  User & Feedback Analytics
-                </p>
-              </a>
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">📈</span>
+                  <span
+                    className={`${
+                      health?.grafana
+                        ? "bg-green-400 text-green-900"
+                        : "bg-red-500 text-white"
+                    } text-xs px-2 py-1 rounded-full font-semibold`}
+                  >
+                    {health?.grafana ? "Running" : "Stopped"}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold mt-2">Grafana</h3>
+                <p className="text-yellow-200 text-xs mt-1">localhost:3001</p>
+              </div>
 
-              <a
-                href="http://localhost:9090"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-gradient-to-br from-orange-600 to-orange-800 rounded-lg p-6 hover:scale-105 transition transform"
-              >
-                <span className="text-4xl">🔥</span>
-                <h3 className="text-xl font-bold mt-3">Prometheus UI</h3>
-                <p className="text-orange-200 text-sm mt-1">Query & Explore</p>
-                <p className="text-xs text-orange-300 mt-2">
-                  localhost:9090 (if running)
-                </p>
-              </a>
+              <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">🗄️</span>
+                  <span className="bg-green-400 text-green-900 text-xs px-2 py-1 rounded-full font-semibold">
+                    Connected
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold mt-2">MongoDB</h3>
+                <p className="text-blue-200 text-xs mt-1">Atlas Cluster</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-red-600 to-red-800 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">⚡</span>
+                  <span className="bg-green-400 text-green-900 text-xs px-2 py-1 rounded-full font-semibold">
+                    Ready
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold mt-2">Redis</h3>
+                <p className="text-red-200 text-xs mt-1">localhost:6379</p>
+              </div>
             </div>
 
-            {/* Grafana Setup Guide */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <span className="text-2xl">📊</span> Grafana Integration Guide
-              </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium text-blue-400 mb-3">
-                    Quick Setup Steps:
-                  </h4>
-                  <ol className="space-y-2 text-gray-300 text-sm">
-                    <li className="flex gap-2">
-                      <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0">
-                        1
-                      </span>
-                      <span>
-                        Install Grafana from grafana.com/grafana/download
-                      </span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0">
-                        2
-                      </span>
-                      <span>Start Grafana (usually runs on port 3001)</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0">
-                        3
-                      </span>
-                      <span>
-                        Add Prometheus data source with URL:
-                        http://localhost:4000
-                      </span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0">
-                        4
-                      </span>
-                      <span>Create dashboards using available metrics</span>
-                    </li>
-                  </ol>
+            {/* Docker Control Section */}
+            <div className="bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-700 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <span className="text-2xl">🐳</span> Docker Monitoring
+                  Services
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => controlDocker("start")}
+                    disabled={
+                      dockerLoading || (health?.prometheus && health?.grafana)
+                    }
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+                      dockerLoading || (health?.prometheus && health?.grafana)
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700"
+                    }`}
+                  >
+                    ▶️ Start
+                  </button>
+                  <button
+                    onClick={() => controlDocker("stop")}
+                    disabled={
+                      dockerLoading || (!health?.prometheus && !health?.grafana)
+                    }
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+                      dockerLoading || (!health?.prometheus && !health?.grafana)
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-red-600 hover:bg-red-700"
+                    }`}
+                  >
+                    ⏹️ Stop
+                  </button>
+                  <button
+                    onClick={() => controlDocker("restart")}
+                    disabled={dockerLoading}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+                      dockerLoading
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-yellow-600 hover:bg-yellow-700"
+                    }`}
+                  >
+                    🔄 Restart
+                  </button>
                 </div>
-                <div>
-                  <h4 className="font-medium text-green-400 mb-3">
-                    Or use Docker:
+              </div>
+
+              {dockerMessage && (
+                <div
+                  className={`mb-4 p-3 rounded-lg ${
+                    dockerMessage.includes("✅")
+                      ? "bg-green-900/50 border border-green-700"
+                      : "bg-red-900/50 border border-red-700"
+                  }`}
+                >
+                  {dockerMessage}
+                </div>
+              )}
+
+              {dockerLoading && (
+                <div className="mb-4 p-3 rounded-lg bg-blue-900/50 border border-blue-700 flex items-center gap-2">
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                  Starting Docker services...
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Option 1: Docker Compose */}
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h4 className="text-green-400 font-semibold mb-3 flex items-center gap-2">
+                    <span>✅</span> Option 1: Docker Compose (Recommended)
                   </h4>
-                  <div className="bg-gray-900 rounded-lg p-4 font-mono text-sm text-green-400 overflow-x-auto">
-                    <p>cd monitoring</p>
-                    <p>docker-compose up -d</p>
+
+                  <div className="space-y-3">
+                    <div className="bg-gray-900 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400 text-sm">
+                          Step 1: Navigate to monitoring folder
+                        </span>
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText("cd monitoring")
+                          }
+                          className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs"
+                        >
+                          📋 Copy
+                        </button>
+                      </div>
+                      <code className="text-green-400">cd monitoring</code>
+                    </div>
+
+                    <div className="bg-gray-900 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400 text-sm">
+                          Step 2: Start all services
+                        </span>
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText(
+                              "docker-compose up -d"
+                            )
+                          }
+                          className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs"
+                        >
+                          📋 Copy
+                        </button>
+                      </div>
+                      <code className="text-green-400">
+                        docker-compose up -d
+                      </code>
+                    </div>
+
+                    <p className="text-gray-400 text-sm">
+                      This starts: Prometheus (9090), Grafana (3001), Redis
+                      (6379)
+                    </p>
                   </div>
-                  <p className="text-gray-400 text-xs mt-2">
-                    This starts Prometheus + Grafana pre-configured
-                  </p>
+                </div>
+
+                {/* Option 2: Individual Commands */}
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h4 className="text-yellow-400 font-semibold mb-3 flex items-center gap-2">
+                    <span>🔧</span> Option 2: Individual Docker Commands
+                  </h4>
+
+                  <div className="space-y-3">
+                    <div className="bg-gray-900 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400 text-sm">
+                          Start Prometheus
+                        </span>
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText(
+                              "docker run -d --name prometheus -p 9090:9090 prom/prometheus"
+                            )
+                          }
+                          className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs"
+                        >
+                          📋 Copy
+                        </button>
+                      </div>
+                      <code className="text-purple-400 text-sm">
+                        docker run -d --name prometheus -p 9090:9090
+                        prom/prometheus
+                      </code>
+                    </div>
+
+                    <div className="bg-gray-900 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-400 text-sm">
+                          Start Grafana
+                        </span>
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText(
+                              "docker run -d --name grafana -p 3001:3000 grafana/grafana"
+                            )
+                          }
+                          className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs"
+                        >
+                          📋 Copy
+                        </button>
+                      </div>
+                      <code className="text-purple-400 text-sm">
+                        docker run -d --name grafana -p 3001:3000
+                        grafana/grafana
+                      </code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grafana Credentials */}
+              <div className="mt-4 bg-gradient-to-r from-pink-900/50 to-purple-900/50 border border-pink-700 rounded-lg p-4">
+                <h4 className="text-pink-400 font-semibold mb-2 flex items-center gap-2">
+                  <span>🔐</span> Grafana Login Credentials
+                </h4>
+                <div className="flex flex-wrap gap-6 text-sm">
+                  <div>
+                    <span className="text-gray-400">URL: </span>
+                    <a
+                      href="http://localhost:3001"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      http://localhost:3001
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Username: </span>
+                    <code className="text-white bg-gray-700 px-2 py-0.5 rounded">
+                      team.808.test@gmail.com
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Password: </span>
+                    <code className="text-white bg-gray-700 px-2 py-0.5 rounded">
+                      team@808
+                    </code>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Visual Metrics Dashboard */}
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                <span className="text-2xl">📊</span> Real-Time Metrics Dashboard
-              </h3>
+            {/* Embedded Grafana Dashboard (when running) */}
+            {health?.grafana && (
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <span className="text-2xl">📈</span> Live Grafana Dashboard
+                </h3>
+                <div className="bg-gray-900 rounded-lg overflow-hidden">
+                  <iframe
+                    src="http://localhost:3001/d/crm-dashboard/crm-metrics?orgId=1&refresh=5s&kiosk"
+                    width="100%"
+                    height="600"
+                    frameBorder="0"
+                    title="Grafana Dashboard"
+                    className="rounded-lg"
+                  />
+                </div>
+              </div>
+            )}
 
-              {/* Gauge Charts Row */}
+            {/* Live System Gauges */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <span className="text-2xl">📊</span> Real-Time System Metrics
+                </h3>
+                <button
+                  onClick={fetchData}
+                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition flex items-center gap-2"
+                >
+                  🔄 Refresh
+                </button>
+              </div>
+
+              {/* Gauge Charts */}
               <div className="grid md:grid-cols-4 gap-6 mb-8">
                 {/* CPU Gauge */}
                 <div className="bg-gray-700 rounded-lg p-4">
@@ -1214,25 +1444,22 @@ const AdminDashboard = () => {
                         stroke="#10B981"
                         strokeWidth="12"
                         fill="none"
-                        strokeDasharray={`${(health?.cpu || 25) * 3.52} 352`}
+                        strokeDasharray={`${(health?.cpu || 15) * 3.52} 352`}
                         strokeLinecap="round"
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span className="text-2xl font-bold text-green-400">
-                        {health?.cpu || 25}%
+                        {health?.cpu || 15}%
                       </span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    process_cpu_seconds
-                  </p>
                 </div>
 
                 {/* Memory Gauge */}
                 <div className="bg-gray-700 rounded-lg p-4">
                   <p className="text-sm text-gray-400 mb-2 text-center">
-                    Memory Usage
+                    Memory
                   </p>
                   <div className="relative w-32 h-32 mx-auto">
                     <svg className="w-32 h-32 transform -rotate-90">
@@ -1268,15 +1495,12 @@ const AdminDashboard = () => {
                       <span className="text-xs text-gray-400">MB</span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    nodejs_heap_size_bytes
-                  </p>
                 </div>
 
-                {/* Active Handles Gauge */}
+                {/* Uptime */}
                 <div className="bg-gray-700 rounded-lg p-4">
                   <p className="text-sm text-gray-400 mb-2 text-center">
-                    Active Handles
+                    Uptime
                   </p>
                   <div className="relative w-32 h-32 mx-auto">
                     <svg className="w-32 h-32 transform -rotate-90">
@@ -1295,28 +1519,22 @@ const AdminDashboard = () => {
                         stroke="#8B5CF6"
                         strokeWidth="12"
                         fill="none"
-                        strokeDasharray={`${Math.min(
-                          (health?.handles || 12) * 10,
-                          352
-                        )} 352`}
+                        strokeDasharray="352 352"
                         strokeLinecap="round"
                       />
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-purple-400">
-                        {health?.handles || 12}
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <span className="text-lg font-bold text-purple-400">
+                        {health?.uptime ? formatUptime(health.uptime) : "0m"}
                       </span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    nodejs_active_handles
-                  </p>
                 </div>
 
-                {/* Request Rate */}
+                {/* Response Time */}
                 <div className="bg-gray-700 rounded-lg p-4">
                   <p className="text-sm text-gray-400 mb-2 text-center">
-                    Requests/min
+                    Avg Response
                   </p>
                   <div className="relative w-32 h-32 mx-auto">
                     <svg className="w-32 h-32 transform -rotate-90">
@@ -1336,40 +1554,229 @@ const AdminDashboard = () => {
                         strokeWidth="12"
                         fill="none"
                         strokeDasharray={`${Math.min(
-                          (stats?.requests || 150) / 2,
+                          (stats?.avgResponseTime || 45) / 2,
                           352
                         )} 352`}
                         strokeLinecap="round"
                       />
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-yellow-400">
-                        {stats?.requests || 150}
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <span className="text-xl font-bold text-yellow-400">
+                        {stats?.avgResponseTime || 45}
+                      </span>
+                      <span className="text-xs text-gray-400">ms</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* User Analytics */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <span className="text-2xl">👥</span> User Analytics
+              </h3>
+
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* User Status Pie Chart */}
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-4 text-center">
+                    Online vs Offline
+                  </p>
+                  <div className="relative w-40 h-40 mx-auto">
+                    <svg viewBox="0 0 100 100" className="w-full h-full">
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        stroke="#374151"
+                        strokeWidth="20"
+                      />
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="20"
+                        strokeDasharray={`${
+                          ((stats?.users?.online || 0) /
+                            (stats?.users?.total || 1)) *
+                          251.2
+                        } 251.2`}
+                        transform="rotate(-90 50 50)"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center flex-col">
+                      <span className="text-2xl font-bold">
+                        {stats?.users?.total || 0}
+                      </span>
+                      <span className="text-xs text-gray-400">Total</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-center gap-4 mt-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                      <span>Online ({stats?.users?.online || 0})</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
+                      <span>
+                        Offline (
+                        {(stats?.users?.total || 0) -
+                          (stats?.users?.online || 0)}
+                        )
                       </span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    http_requests_total
+                </div>
+
+                {/* Verification Bar Chart */}
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-4 text-center">
+                    Verification Status
                   </p>
+                  <div className="h-40 flex items-end justify-center gap-8">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className="w-16 bg-gradient-to-t from-green-600 to-green-400 rounded-t-lg transition-all duration-500"
+                        style={{
+                          height: `${Math.max(
+                            ((stats?.users?.verified || 0) /
+                              (stats?.users?.total || 1)) *
+                              120,
+                            20
+                          )}px`,
+                        }}
+                      />
+                      <span className="text-xs text-gray-400 mt-2">
+                        Verified
+                      </span>
+                      <span className="text-lg font-bold text-green-400">
+                        {stats?.users?.verified || 0}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div
+                        className="w-16 bg-gradient-to-t from-yellow-600 to-yellow-400 rounded-t-lg transition-all duration-500"
+                        style={{
+                          height: `${Math.max(
+                            (((stats?.users?.total || 0) -
+                              (stats?.users?.verified || 0)) /
+                              (stats?.users?.total || 1)) *
+                              120,
+                            20
+                          )}px`,
+                        }}
+                      />
+                      <span className="text-xs text-gray-400 mt-2">
+                        Pending
+                      </span>
+                      <span className="text-lg font-bold text-yellow-400">
+                        {(stats?.users?.total || 0) -
+                          (stats?.users?.verified || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity Stats */}
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <p className="text-sm text-gray-400 mb-4 text-center">
+                    Activity Overview
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>🟢 Active Users</span>
+                        <span className="font-bold">
+                          {stats?.users?.online || 0}
+                        </span>
+                      </div>
+                      <div className="h-3 bg-gray-600 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-green-500 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${
+                              ((stats?.users?.online || 0) /
+                                (stats?.users?.total || 1)) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>✅ Verified</span>
+                        <span className="font-bold">
+                          {stats?.users?.verified || 0}
+                        </span>
+                      </div>
+                      <div className="h-3 bg-gray-600 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${
+                              ((stats?.users?.verified || 0) /
+                                (stats?.users?.total || 1)) *
+                              100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>👤 Total Users</span>
+                        <span className="font-bold">
+                          {stats?.users?.total || 0}
+                        </span>
+                      </div>
+                      <div className="h-3 bg-gray-600 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-purple-500 rounded-full"
+                          style={{ width: "100%" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* Bar Charts Row */}
-              <div className="grid md:grid-cols-2 gap-6 mb-8">
-                {/* Sentiment Distribution Bar Chart */}
+            {/* Feedback Analytics */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <span className="text-2xl">💬</span> Feedback Analytics
+              </h3>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Sentiment Distribution */}
                 <div className="bg-gray-700 rounded-lg p-4">
                   <p className="text-sm text-gray-400 mb-4">
                     Sentiment Distribution
                   </p>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-green-400">😊 Positive</span>
-                        <span>{stats?.feedback?.positive || 0}</span>
+                        <span>
+                          {stats?.feedback?.positive || 0} (
+                          {stats?.feedback?.total
+                            ? Math.round(
+                                ((stats?.feedback?.positive || 0) /
+                                  stats.feedback.total) *
+                                  100
+                              )
+                            : 0}
+                          %)
+                        </span>
                       </div>
                       <div className="h-6 bg-gray-600 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-500"
+                          className="h-full bg-gradient-to-r from-green-600 to-green-400 rounded-full transition-all duration-500"
                           style={{
                             width: `${
                               stats?.feedback?.total
@@ -1385,7 +1792,17 @@ const AdminDashboard = () => {
                     <div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-400">😐 Neutral</span>
-                        <span>{stats?.feedback?.neutral || 0}</span>
+                        <span>
+                          {stats?.feedback?.neutral || 0} (
+                          {stats?.feedback?.total
+                            ? Math.round(
+                                ((stats?.feedback?.neutral || 0) /
+                                  stats.feedback.total) *
+                                  100
+                              )
+                            : 0}
+                          %)
+                        </span>
                       </div>
                       <div className="h-6 bg-gray-600 rounded-full overflow-hidden">
                         <div
@@ -1405,11 +1822,21 @@ const AdminDashboard = () => {
                     <div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-red-400">😞 Negative</span>
-                        <span>{stats?.feedback?.negative || 0}</span>
+                        <span>
+                          {stats?.feedback?.negative || 0} (
+                          {stats?.feedback?.total
+                            ? Math.round(
+                                ((stats?.feedback?.negative || 0) /
+                                  stats.feedback.total) *
+                                  100
+                              )
+                            : 0}
+                          %)
+                        </span>
                       </div>
                       <div className="h-6 bg-gray-600 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-red-500 to-red-400 rounded-full transition-all duration-500"
+                          className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full transition-all duration-500"
                           style={{
                             width: `${
                               stats?.feedback?.total
@@ -1423,157 +1850,52 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-3">
-                    feedback_sentiment_total
-                  </p>
                 </div>
 
-                {/* User Stats Bar Chart */}
-                <div className="bg-gray-700 rounded-lg p-4">
-                  <p className="text-sm text-gray-400 mb-4">User Statistics</p>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-blue-400">👥 Total Users</span>
-                        <span>{stats?.users?.total || 0}</span>
-                      </div>
-                      <div className="h-6 bg-gray-600 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-                          style={{ width: "100%" }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-green-400">✅ Verified</span>
-                        <span>{stats?.users?.verified || 0}</span>
-                      </div>
-                      <div className="h-6 bg-gray-600 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${
-                              stats?.users?.total
-                                ? ((stats?.users?.verified || 0) /
-                                    stats.users.total) *
-                                  100
-                                : 50
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-emerald-400">🟢 Online Now</span>
-                        <span>{stats?.users?.online || 0}</span>
-                      </div>
-                      <div className="h-6 bg-gray-600 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${
-                              stats?.users?.total
-                                ? ((stats?.users?.online || 0) /
-                                    stats.users.total) *
-                                  100
-                                : 20
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
+                {/* Feedback Stats Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 border border-blue-700 rounded-lg p-4 text-center">
+                    <p className="text-4xl font-bold text-blue-400">
+                      {stats?.feedback?.total || 0}
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">Total Feedback</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-3">
-                    active_users_total / verified_users_total
-                  </p>
-                </div>
-              </div>
-
-              {/* Counter Cards */}
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-green-900/50 to-green-800/30 border border-green-700 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-green-400 text-sm font-medium">
-                        HTTP Requests
-                      </p>
-                      <p className="text-3xl font-bold mt-1">
-                        {stats?.httpRequests || 1250}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        http_requests_total
-                      </p>
-                    </div>
-                    <div className="text-4xl opacity-50">📈</div>
+                  <div className="bg-gradient-to-br from-green-900/50 to-green-800/30 border border-green-700 rounded-lg p-4 text-center">
+                    <p className="text-4xl font-bold text-green-400">
+                      {stats?.feedback?.aiProcessed ||
+                        stats?.feedback?.total ||
+                        0}
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">AI Analyzed</p>
                   </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs">
-                    <span className="text-green-400">↑ 12%</span>
-                    <span className="text-gray-500">vs last hour</span>
+                  <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/30 border border-purple-700 rounded-lg p-4 text-center">
+                    <p className="text-4xl font-bold text-purple-400">
+                      {stats?.feedback?.today || 0}
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">Today</p>
                   </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 border border-blue-700 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-blue-400 text-sm font-medium">
-                        Avg Response Time
-                      </p>
-                      <p className="text-3xl font-bold mt-1">
-                        {stats?.avgResponseTime || 45}
-                        <span className="text-lg">ms</span>
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        http_request_duration_seconds
-                      </p>
-                    </div>
-                    <div className="text-4xl opacity-50">⚡</div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs">
-                    <span className="text-green-400">↓ 5ms</span>
-                    <span className="text-gray-500">improvement</span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/30 border border-purple-700 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-purple-400 text-sm font-medium">
-                        Feedback Processed
-                      </p>
-                      <p className="text-3xl font-bold mt-1">
-                        {stats?.feedback?.total || 0}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        feedback_submitted_total
-                      </p>
-                    </div>
-                    <div className="text-4xl opacity-50">📝</div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs">
-                    <span className="text-purple-400">
-                      AI: {stats?.feedback?.aiProcessed || 0}
-                    </span>
-                    <span className="text-gray-500">analyzed</span>
+                  <div className="bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 border border-yellow-700 rounded-lg p-4 text-center">
+                    <p className="text-4xl font-bold text-yellow-400">
+                      {stats?.feedback?.total
+                        ? Math.round(
+                            ((stats?.feedback?.positive || 0) /
+                              stats.feedback.total) *
+                              100
+                          )
+                        : 0}
+                      %
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">Satisfaction</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Live Stats Preview */}
+            {/* Live Activity Feed */}
             <div className="bg-gray-800 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold flex items-center gap-2">
-                  <span className="text-2xl">⚡</span> Live System Stats
-                </h3>
-                <button
-                  onClick={fetchData}
-                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition"
-                >
-                  🔄 Refresh
-                </button>
-              </div>
+              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="text-2xl">⚡</span> System Status
+              </h3>
               <div className="grid md:grid-cols-4 gap-4">
                 <div className="bg-gray-700 rounded-lg p-4 text-center">
                   <p className="text-3xl font-bold text-blue-400">
@@ -1602,7 +1924,7 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Navigate to Analytics */}
+            {/* Quick Navigation */}
             <div className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6 border border-blue-700">
               <div className="flex items-center justify-between">
                 <div>

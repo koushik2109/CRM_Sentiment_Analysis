@@ -152,7 +152,17 @@ async function analyzeWithAI(text) {
     }
     return null;
   } catch (error) {
-    console.error("AI API error:", error.message);
+    // Only log once - 401 means invalid API key
+    if (error.response?.status === 401) {
+      if (!analyzeWithAI.loggedAuthError) {
+        console.warn(
+          "⚠️ AI API: Invalid or expired API key - using fallback sentiment analysis"
+        );
+        analyzeWithAI.loggedAuthError = true;
+      }
+    } else {
+      console.error("AI API error:", error.message);
+    }
     return null;
   }
 }

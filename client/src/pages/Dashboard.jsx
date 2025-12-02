@@ -24,7 +24,7 @@ const Dashboard = () => {
     );
   }
 
-  const features = [
+  const baseFeatures = [
     {
       icon: "📊",
       title: "Analytics",
@@ -50,6 +50,20 @@ const Dashboard = () => {
       path: "/settings",
     },
   ];
+
+  // Add Admin Dashboard option only for admin users
+  const features =
+    user?.role === "admin"
+      ? [
+          ...baseFeatures,
+          {
+            icon: "🛡️",
+            title: "Admin Dashboard",
+            description: "System administration & monitoring",
+            path: "/admin",
+          },
+        ]
+      : baseFeatures;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">

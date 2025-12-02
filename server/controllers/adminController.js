@@ -14,12 +14,26 @@ async function getMongoDb() {
   return feedbackDb;
 }
 
+// Mark users offline if no heartbeat in 2 minutes
+const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000;
+
+async function updateOfflineUsers() {
+  const threshold = new Date(Date.now() - OFFLINE_THRESHOLD_MS);
+  await userModel.updateMany(
+    { isOnline: true, lastActive: { $lt: threshold } },
+    { isOnline: false }
+  );
+}
+
 /**
  * Get admin dashboard overview stats
  * GET /api/admin/stats
  */
 export const getAdminStats = async (req, res) => {
   try {
+    // First, mark inactive users as offline
+    await updateOfflineUsers();
+
     // Get user statistics
     const [
       totalUsers,
@@ -317,8 +331,11 @@ export const getSystemHealth = async (req, res) => {
       server: "healthy",
       database: "unknown",
       redis: "unknown",
+      prometheus: false,
+      grafana: false,
       uptime: process.uptime(),
       memory: process.memoryUsage(),
+      cpu: Math.round(process.cpuUsage().user / 1000000), // Approximate CPU usage
       timestamp: new Date().toISOString(),
     };
 
@@ -348,8 +365,81 @@ export const getSystemHealth = async (req, res) => {
       health.redis = "unavailable";
     }
 
+    // Check Prometheus (port 9090)
+    try {
+      const response = await fetch("http://localhost:9090/-/healthy", {
+        signal: AbortSignal.timeout(2000),
+      });
+      health.prometheus = response.ok;
+    } catch (err) {
+      health.prometheus = false;
+    }
+
+    // Check Grafana (port 3001)
+    try {
+      const response = await fetch("http://localhost:3001/api/health", {
+        signal: AbortSignal.timeout(2000),
+      });
+      health.grafana = response.ok;
+    } catch (err) {
+      health.grafana = false;
+    }
+
     res.json({ success: true, health });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Start/Stop Docker monitoring services
+ * POST /api/admin/docker/:action
+ * action: start, stop, restart
+ */
+export const controlDockerMonitoring = async (req, res) => {
+  const { action } = req.params;
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const execAsync = promisify(exec);
+  const path = await import("path");
+
+  const validActions = ["start", "stop", "restart"];
+  if (!validActions.includes(action)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid action. Use: start, stop, or restart",
+    });
+  }
+
+  try {
+    // Get the path to monitoring folder
+    const monitoringPath = path.resolve(process.cwd(), "..", "monitoring");
+
+    let command;
+    switch (action) {
+      case "start":
+        command = `docker-compose -f "${monitoringPath}/docker-compose.yml" up -d prometheus grafana`;
+        break;
+      case "stop":
+        command = `docker-compose -f "${monitoringPath}/docker-compose.yml" stop prometheus grafana`;
+        break;
+      case "restart":
+        command = `docker-compose -f "${monitoringPath}/docker-compose.yml" restart prometheus grafana`;
+        break;
+    }
+
+    const { stdout, stderr } = await execAsync(command);
+
+    res.json({
+      success: true,
+      message: `Docker monitoring services ${action}ed successfully`,
+      output: stdout || stderr,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Failed to ${action} monitoring services`,
+      error: error.message,
+    });
   }
 };
